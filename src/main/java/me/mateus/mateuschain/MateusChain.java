@@ -1,32 +1,65 @@
 package me.mateus.mateuschain;
 
-import com.google.gson.GsonBuilder;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import java.security.Security;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MateusChain {
 
-    private static List<Block> blockchain = new ArrayList<>();
-    private static final int difficulty = 6;
+    private static final List<Block> blockchain = new ArrayList<>();
+    public static final Map<String, TransactionOutput> UTXOs = new HashMap<>();
+    private static final int difficulty = 3;
 
     public static void main(String[] args) {
-        blockchain.add(new Block("Eu sou o bloco 1", "0"));
-        System.out.println("Tentando minerar o bloco 1...");
-        blockchain.get(0).mineBlock(difficulty);
+        Security.addProvider(new BouncyCastleProvider());
 
-        blockchain.add(new Block("Eu sou o bloco 2", blockchain.get(blockchain.size() - 1).getHash()));
-        System.out.println("Tentando minerar o bloco 2...");
-        blockchain.get(1).mineBlock(difficulty);
+        Wallet walletA = new Wallet();
+        Wallet walletB = new Wallet();
+        Wallet coinbase = new Wallet();
 
-        blockchain.add(new Block("Eu sou o bloco 3", blockchain.get(blockchain.size() - 1).getHash()));
-        System.out.println("Tentando minerar o bloco 3...");
-        blockchain.get(2).mineBlock(difficulty);
+        Transaction genesisTransaction = new Transaction(coinbase.getPublicKey(), walletA.getPublicKey(), 100.0f, null);
+        genesisTransaction.generateSignature(coinbase.getPrivateKey());
+        genesisTransaction.setId("0");
+        genesisTransaction.getOutputs().add(new TransactionOutput(genesisTransaction.getRecipient(), genesisTransaction.getValue(), genesisTransaction.getId()));
+        UTXOs.put(genesisTransaction.getOutputs().get(0).getId(), genesisTransaction.getOutputs().get(0));
 
-        System.out.println("A chain é valida? :" + isChainValid());
+        System.out.println("Criando e minerando o primeiro bloco");
 
-        String jsonStr = new GsonBuilder().setPrettyPrinting().create().toJson(blockchain);
-        System.out.println("\nA blockchain:\n" + jsonStr);
+        Block genesis = new Block("0");
+        genesis.addTransaction(genesisTransaction);
+        addBlock(genesis);
+
+        Block b1 = new Block(genesis.getHash());
+        System.out.println("\nOs fundos da conta A: " + walletA.getBalance());
+        System.out.println("\nA conta A está mandando 40 coins para a conta B");
+        b1.addTransaction(walletA.sendFunds(walletB.getPublicKey(), 40f));
+        addBlock(b1);
+        System.out.println("\nOs fundos da conta A: " + walletA.getBalance());
+        System.out.println("Os fundos da conta B: " + walletB.getBalance());
+
+        Block b2 = new Block(b1.getHash());
+        System.out.println("\nA conta A está mandando 1000 coins para a conta B");
+        b2.addTransaction(walletA.sendFunds(walletB.getPublicKey(), 1000f));
+        addBlock(b2);
+        System.out.println("\nOs fundos da conta A: " + walletA.getBalance());
+        System.out.println("Os fundos da conta B: " + walletB.getBalance());
+
+        Block b3 = new Block(b2.getHash());
+        System.out.println("\nA conta B está mandando 20 coins para a conta A");
+        b3.addTransaction(walletB.sendFunds(walletA.getPublicKey(), 20.0f));
+        System.out.println("\nOs fundos da conta A: " + walletA.getBalance());
+        System.out.println("Os fundos da conta B: " + walletB.getBalance());
+
+        System.out.println("\n\nA chain é valida? :" + isChainValid() );
+    }
+
+    private static void addBlock(Block block) {
+        block.mineBlock(difficulty);
+        blockchain.add(block);
     }
 
     public static boolean isChainValid() {

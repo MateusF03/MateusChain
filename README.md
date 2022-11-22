@@ -4,3 +4,4 @@ Projeto simples para aprender como um blockchain funcionaria em um sistema Java.
 - GSON
 - Java
 - SHA-256
+- BouncyCastle Java
